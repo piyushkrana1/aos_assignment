@@ -15,7 +15,7 @@ int x,y,fsize;
 
 char *curr_dir=NULL;
 char *home=NULL;
-
+// vector<string>files;
 vector<pair<string,string>>files;
 pair<string,string>p;
 
