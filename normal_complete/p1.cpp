@@ -14,15 +14,20 @@ using namespace std;
 int x,y,fsize;
 
 char *curr_dir=NULL;
-// vector<string>files;
+char *home=NULL;
+
 vector<pair<string,string>>files;
 pair<string,string>p;
+
+stack<string>backwards;
+stack<string>forwards;
+
+
 void cursor_print(int x,int y){
     // printf("\033[",y,x);
     cout<<"\033["<<y<<";"<<x<<"H";
     // fflush(stdout);
 }
-
 
 int printdata(const char *curr_dir){
     // vector<string>files;
@@ -114,9 +119,57 @@ void clean(){
     printf("\033[H\033[2J\033[3J");
 }
 
+void go_home()
+{
+    if(curr_dir!=home){
+        backwards.push(curr_dir);
+        files.clear();
+        clean();
+        strcpy(curr_dir,home);
+        printdata(home);
+        x=1;y=1;
+        cursor_print(x,y);
+    }
+}
+
+void up_one(){
+
+
+
+}
+
+void next_dir(){
+    if(!forwards.empty()){
+        auto var=forwards.top();
+        clean();
+        files.clear();
+        forwards.pop();
+        backwards.push(curr_dir);
+        strcpy(curr_dir,var.c_str());
+        printdata(curr_dir);
+        x=1;y=1;
+        cursor_print(x,y);
+    }
+
+}
+
+void prev_dir(){
+    if(!backwards.empty()){
+        auto var=backwards.top();
+        clean();
+        files.clear();
+        forwards.push(curr_dir);
+        backwards.pop();
+        strcpy(curr_dir,var.c_str());
+        printdata(curr_dir);
+        x=1;y=1;
+        cursor_print(x,y);
+    }
+
+}
+
 void enter_key(){
 
-            curr_dir=getenv("PWD");
             if(files[y-1].first!="."&&files[y-1].second!="d"){
                 string s=(string)curr_dir+"/"+files[y-1].first;
                 pid_t baby=fork();
@@ -126,22 +179,29 @@ void enter_key(){
             }
             
             if(files[y-1].first!="."&&files[y-1].second=="d"){
-            curr_dir=strcat(curr_dir,"/");
-            curr_dir=strcat(curr_dir,files[y-1].first.c_str());
-//         //    cout<<"\t\t"<<curr_dir;
+            backwards.push(string(curr_dir));
+            string pcon=string(curr_dir)+"/"+files[y-1].first;
+            // strcat(pcon,string(curr_dir));
+            // strcat(pcon,"/");
+            // strcat(pcon,files[y-1].first);
+            char *stoc=new char[pcon.length()+1];
+            strcpy(stoc,pcon.c_str());
+
+            strcpy(curr_dir,stoc);
             clean();
+            // cout<<backwards.top();
             files.clear();
             printdata(curr_dir);
-            x=1,y=1;
+            x=1;y=1;
             cursor_print(x,y);
             }
 }
 
-
-
 int main()
 {   x=1,y=1;
-    curr_dir=getenv("PWD");
+    curr_dir=get_current_dir_name();
+    home=get_current_dir_name();
+
     clean();
     enable_normal_mode();
     printdata(curr_dir);
@@ -152,7 +212,12 @@ int main()
         if(ch==10){
             enter_key();
         }
-        if(ch=='q'){exit(1);}
+        if(ch==127){
+            up_one();
+        }
+        if(ch=='q'){
+            exit(1);
+        }
         else if(ch='\x1b'){
             ch=getchar();
             if(ch=='['){
@@ -162,6 +227,15 @@ int main()
                 }
                 if(ch=='A'){
                     up_cursor();
+                }
+                if(ch=='D'){
+                    prev_dir();
+                }
+                if(ch=='C'){
+                    next_dir();
+                }
+                if(ch=='H'){
+                    go_home();
                 }
             }
         }

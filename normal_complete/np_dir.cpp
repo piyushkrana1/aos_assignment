@@ -138,7 +138,6 @@ void up_one(){
 
 }
 
-
 void next_dir(){
     if(!forwards.empty()){
         auto var=forwards.top();
@@ -213,7 +212,6 @@ int main()
         if(ch==10){
             enter_key();
         }
-
         if(ch==127){
             up_one();
         }
@@ -239,7 +237,6 @@ int main()
                 if(ch=='H'){
                     go_home();
                 }
-
             }
         }
     }
