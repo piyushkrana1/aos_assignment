@@ -10,9 +10,11 @@
 #include<termio.h>
 #include<pwd.h>
 #include <grp.h>
+#include<sys/ioctl.h>
+#include<fcntl.h>
 using namespace std;
 int x,y,fsize;
-
+int mode_flag=0;
 char *curr_dir=NULL;
 char *home=NULL;
 
@@ -22,6 +24,12 @@ pair<string,string>p;
 stack<string>backwards;
 stack<string>forwards;
 
+string vcommand;
+vector<string>pathvector;
+
+struct winsize w;
+
+
 
 void cursor_print(int x,int y){
     // printf("\033[",y,x);
@@ -29,7 +37,25 @@ void cursor_print(int x,int y){
     // fflush(stdout);
 }
 
+void lineclear(){
+    cursor_print(1,29);
+    cout<<"\033[0K";
+}
+
+void print_type(){
+    cursor_print(1,28);
+    if(mode_flag==0){
+        cout<<"NORMAL MODE";
+        
+    }
+    if(mode_flag==1){
+        cout<<"COMMAND MODE";
+    }
+    cursor_print(1,1);
+}
+
 int printdata(const char *curr_dir){
+    print_type();
     // vector<string>files;
     DIR *dp=NULL;
     struct dirent *dptr=NULL;
@@ -83,9 +109,12 @@ int printdata(const char *curr_dir){
 
         // printf("\n");
         fsize=files.size();
+
 }
 return 0;
 }    
+
+
 
 struct termios original_param; 
 void disable_normal_mode(){
@@ -133,9 +162,25 @@ void go_home()
 }
 
 void up_one(){
-
-
-
+    clean();
+    files.clear();
+    backwards.push(curr_dir);
+    // forwards.push(curr_dir);
+    string s=string(curr_dir);
+    int var;
+    for(int i=0;i<s.length();i++){
+        if(s[i]=='/'){
+            var=i;
+        }
+    }
+    string a="";
+    for(int i=0;i<var;i++){
+        a=a+s[i];
+    }
+    strcpy(curr_dir,a.c_str());
+    printdata(curr_dir);
+    x=1;y=1;
+    cursor_print(x,y);
 }
 
 void next_dir(){
@@ -170,6 +215,11 @@ void prev_dir(){
 
 void enter_key(){
 
+            if(files[y-1].first=="..")
+            {
+                up_one();
+            }
+
             if(files[y-1].first!="."&&files[y-1].second!="d"){
                 string s=(string)curr_dir+"/"+files[y-1].first;
                 pid_t baby=fork();
@@ -197,14 +247,268 @@ void enter_key(){
             }
 }
 
+
+//coomand mode function
+
+//function to remove path till last slash
+string path_removed(string pathvar){
+    int var=0;
+    for(int i=0;i<pathvar.length();i++){
+        if(pathvar[i]=='/'){
+            var=i;
+        }
+    }
+    string s="";
+    for(int i=0;i<var;i++){
+        s=s+pathvar[i];
+    }
+    return s;
+}
+
+
+string get_file_name(string s){
+    string var="";
+    for(auto &i:s){
+        if(i=='/'){
+            var="";
+        }
+        else{
+            var=var+i;
+        }
+    }
+    return var;
+}
+
+
+void copy(){
+
+    mode_t mode=S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IROTH;
+    // pathvector.push_back("a");
+    // pathvector.push_back("random.txt");
+    // pathvector.push_back("./temp");
+    int n=pathvector.size();
+    for(int i=1;i<n-1;i++){
+        string firstf=pathvector[i];
+        string secondf=pathvector[n-1];
+        char bufo[255];
+        char bufn[255];
+        int value;
+        char *resold=realpath(firstf.c_str(),bufo);
+        char *resnew=realpath(secondf.c_str(),bufn);
+        string pathold=string(resold);
+        string pathnew=string(resnew);
+        string pathvar=get_file_name(pathold);
+        string full_path=pathnew+"/"+pathvar;
+        creat(full_path.c_str(),mode);
+        int fd_one,fd_two;
+        fd_one=open(pathold.c_str(),O_RDONLY);
+        if(fd_one==-1){cout<<"error"<<endl;}
+        fd_two=open(full_path.c_str(),O_WRONLY);
+        // if(fd_two==-1){cout<<"error"<<endl;}
+        char buf[1024];
+        while(read(fd_one,&buf,1024)){
+            write(fd_two,&buf,1024);
+        }
+    }
+}
+
+void move(){
+    int n=pathvector.size();
+    for(int i=1;i<n-1;i++){
+        string firstf=pathvector[i];
+        string secondf=pathvector[n-1];
+        char bufo[255];
+        char bufn[255];
+        int value;
+        char *resold=realpath(firstf.c_str(),bufo);
+        char *resnew=realpath(secondf.c_str(),bufn);
+        string pathvar=get_file_name(string(resold));
+        string pathold=string(resold);
+        string pathnew=string(resnew);
+        string new_path=pathnew+"/"+pathvar;
+        rename(pathold.c_str(),new_path.c_str());
+
+        clean();
+        files.clear();
+        printdata(curr_dir);
+        x=1;y=29;
+        cursor_print(x,y);
+    }
+
+}
+
+
+
+void create_dir(){
+    mode_t mode=S_IRUSR | S_IWUSR | S_IXUSR|S_IRGRP|S_IROTH;
+    string firstf=pathvector[1];//filename
+    string secondf=pathvector[2];//destination
+    char buf[255];
+    int value;
+    char *res=realpath(secondf.c_str(),buf);
+    string pathvar=string(res);
+    string full_path=pathvar+"/"+firstf;
+    mkdir(full_path.c_str(),mode);
+    clean();
+    files.clear();
+    printdata(curr_dir);
+    x=1;y=29;
+    cursor_print(x,y);
+
+}
+
+void create_file(){
+    mode_t mode=S_IRUSR|S_IWUSR | S_IXUSR|S_IRGRP|S_IROTH;
+    string firstf=pathvector[1];//filename
+    string secondf=pathvector[2];//destination
+    char buf[255];
+    int value;
+    char *res=realpath(secondf.c_str(),buf);
+    string pathvar=string(res);
+    string full_path=pathvar+"/"+firstf;
+    creat(full_path.c_str(),mode);
+    clean();
+    files.clear();
+    printdata(curr_dir);
+    x=1;y=29;
+    cursor_print(x,y);
+
+}
+
+
+void rename_file(){
+
+    string firstf=pathvector[1];
+    string secondf=pathvector[2];
+    char buf[255];
+    int value;
+    char *res=realpath(firstf.c_str(),buf);
+    string pathvar=path_removed(string(res));
+    string new_path=pathvar+"/"+secondf;
+    rename(firstf.c_str(),new_path.c_str());
+    clean();
+    files.clear();
+    printdata(curr_dir);
+    x=1;y=29;
+    cursor_print(x,y);
+
+}
+void pathget(){
+    string temp="";
+    for(auto &i:vcommand){
+        if(i==' '){
+            pathvector.push_back(temp);
+            temp="";
+        }
+        else{
+            temp=temp+i;
+        }
+    }
+    pathvector.push_back(temp);
+}
+void fgoto(){
+    char buf[256];
+    char *res=realpath(pathvector[1].c_str(),buf);
+    if(res){
+        backwards.push(string(res));
+        strcpy(curr_dir,res);
+        clean();
+        files.clear();
+        printdata(curr_dir);
+        x=1;y=29;
+        cursor_print(x,y);
+    }
+    if(!res){
+        cout<<"nahi chalunga";
+    }
+}
+
+void com_enter()
+{   
+    pathget();
+    if(vcommand=="quit"){
+        cout<<endl;
+        exit(1);
+    }
+    if(pathvector[0]=="goto"){
+        fgoto();
+    }
+    if(pathvector[0]=="rename"){
+        rename_file();
+    }
+    if(pathvector[0]=="create_file"){
+        create_file();
+    }
+    if(pathvector[0]=="create_dir"){
+        create_dir();
+    }
+    if(pathvector[0]=="move"){
+        move();
+    }
+    if(pathvector[0]=="copy"){
+        copy();
+    }
+    
+}
+// ENTER 10
+// ESCAPE 27
+// BACKSPACE 127
+
+void command(){
+    mode_flag=1;
+    print_type();
+    x=1;y=29;
+    cursor_print(x,y);
+    char c;
+    while(c=getchar()){
+        // char c;
+        // c=getchar();
+        // if(vcommand=="quit"){
+        //     exit(0);
+        // }
+        if(c==27){
+            mode_flag=0;
+            print_type();
+            clean();
+            files.clear();
+            printdata(curr_dir);
+            x=1;y=1;
+            cursor_print(x,y);
+            vcommand.clear();
+            break;
+        }
+        else if(c!=27&&c==127){
+                vcommand=vcommand.substr(0,vcommand.length()-1);
+                lineclear();
+                cout<<vcommand;
+        }
+        else if(c==10){
+            com_enter();
+            vcommand.clear();
+            pathvector.clear();
+            lineclear();
+        }
+        else if(c!=127&&c!=27){
+            vcommand=vcommand+c;
+            lineclear();
+            cout<<vcommand;
+        }
+    }
+}
+
+
+
+
 int main()
-{   x=1,y=1;
+{  
+    x=1,y=1;
     curr_dir=get_current_dir_name();
     home=get_current_dir_name();
 
     clean();
     enable_normal_mode();
     printdata(curr_dir);
+
     // files.clear();
     cursor_print(x,y);
     char ch;
@@ -217,6 +521,10 @@ int main()
         }
         if(ch=='q'){
             exit(1);
+        }
+        if(ch==':'){
+            mode_flag=1;
+            command();
         }
         else if(ch='\x1b'){
             ch=getchar();
