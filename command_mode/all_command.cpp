@@ -246,6 +246,8 @@ void enter_key(){
             cursor_print(x,y);
             }
 }
+
+
 //coomand mode function
 
 //function to remove path till last slash
@@ -262,6 +264,7 @@ string path_removed(string pathvar){
     }
     return s;
 }
+
 string get_file_name(string s){
     string var="";
     for(auto &i:s){
@@ -273,6 +276,20 @@ string get_file_name(string s){
         }
     }
     return var;
+}
+
+void deletef(){
+    string firstf=pathvector[1];
+    char buf[255];
+    int value;
+    char *res=realpath(firstf.c_str(),buf);
+    string pathvar=string(res);
+    remove(pathvar.c_str());
+    clean();
+    files.clear();
+    printdata(curr_dir);
+    x=1;y=29;
+    cursor_print(x,y);
 }
 
 
@@ -306,6 +323,12 @@ void copy(){
             write(fd_two,&buf,1024);
         }
     }
+
+    clean();
+    files.clear();
+    printdata(curr_dir);
+    x=1;y=29;
+    cursor_print(x,y);
 }
 
 void move(){
@@ -339,6 +362,16 @@ void create_dir(){
     mode_t mode=S_IRUSR | S_IWUSR | S_IXUSR|S_IRGRP|S_IROTH;
     string firstf=pathvector[1];//filename
     string secondf=pathvector[2];//destination
+
+    struct passwd *pw=getpwuid(getuid());
+    const char *tilda_dir=pw->pw_dir;
+    if(firstf[0]=='~'){
+        firstf=string(tilda_dir)+firstf.substr(1,firstf.length()-1);
+    }
+    if(secondf[0]=='~'){
+        secondf=string(tilda_dir)+secondf.substr(1,secondf.length()-1);
+    }
+
     char buf[255];
     int value;
     char *res=realpath(secondf.c_str(),buf);
@@ -355,8 +388,18 @@ void create_dir(){
 
 void create_file(){
     mode_t mode=S_IRUSR|S_IWUSR | S_IXUSR|S_IRGRP|S_IROTH;
+
     string firstf=pathvector[1];//filename
     string secondf=pathvector[2];//destination
+
+    struct passwd *pw=getpwuid(getuid());
+    const char *tilda_dir=pw->pw_dir;
+    if(firstf[0]=='~'){
+        firstf=string(tilda_dir)+firstf.substr(1,firstf.length()-1);
+    }
+    if(secondf[0]=='~'){
+        secondf=string(tilda_dir)+secondf.substr(1,secondf.length()-1);
+    }
     char buf[255];
     int value;
     char *res=realpath(secondf.c_str(),buf);
@@ -368,7 +411,6 @@ void create_file(){
     printdata(curr_dir);
     x=1;y=29;
     cursor_print(x,y);
-
 }
 
 
@@ -376,6 +418,13 @@ void rename_file(){
 
     string firstf=pathvector[1];
     string secondf=pathvector[2];
+
+    struct passwd *pw=getpwuid(getuid());
+    const char *tilda_dir=pw->pw_dir;
+    if(pathvector[1][0]=='~'){
+        pathvector[1]=string(tilda_dir)+pathvector[1].substr(1,pathvector[1].length()-1);
+    }
+    firstf=pathvector[1];
     char buf[255];
     int value;
     char *res=realpath(firstf.c_str(),buf);
@@ -389,6 +438,7 @@ void rename_file(){
     cursor_print(x,y);
 
 }
+
 void pathget(){
     string temp="";
     for(auto &i:vcommand){
@@ -402,8 +452,22 @@ void pathget(){
     }
     pathvector.push_back(temp);
 }
+
+
 void fgoto(){
     char buf[256];
+    struct passwd *pw=getpwuid(getuid());
+    const char *tilda_dir=pw->pw_dir;
+    if(pathvector[1][0]=='~'){
+        pathvector[1]=string(tilda_dir)+pathvector[1].substr(1,pathvector[1].length()-1);
+    }
+    if(pathvector[1][0]=='.'&&pathvector[1][1]!='.'){
+        pathvector[1]=string(curr_dir)+pathvector[1].substr(1,pathvector[1].length()-1);
+    }
+    if(pathvector[1][0]=='.'&&pathvector[1][1]=='.'){
+        pathvector[1]=path_removed(curr_dir);
+    }
+
     char *res=realpath(pathvector[1].c_str(),buf);
     if(res){
         backwards.push(string(res));
@@ -414,9 +478,9 @@ void fgoto(){
         x=1;y=29;
         cursor_print(x,y);
     }
-    if(!res){
-        cout<<"nahi chalunga";
-    }
+    // if(!res){
+    //     cout<<"nahi chalunga";
+    // }
 }
 
 void com_enter()
@@ -443,6 +507,9 @@ void com_enter()
     }
     if(pathvector[0]=="copy"){
         copy();
+    }
+    if(pathvector[0]=="delete"){
+        deletef();
     }
     
 }
