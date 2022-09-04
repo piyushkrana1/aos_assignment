@@ -99,7 +99,18 @@ int printdata(const char *curr_dir){
         gp=getgrgid(fileStat.st_gid);
         printf("\t%s",gp->gr_name);
         // // stat(files[c].c_str(),&fileStat);
-        printf("\t %.2fK\t",(float)fileStat.st_size/1024);
+        if((float)(fileStat.st_size)>(1024*1024*1024)){
+            printf("\t %.3gG\t",(float)fileStat.st_size/1024/1024/1024);
+        }
+        else if((float)(fileStat.st_size)>(1024*1024)){
+            printf("\t %.3gM\t",(float)fileStat.st_size/1024/1024);
+        }
+        else if((float)(fileStat.st_size)>(1024)){
+            printf("\t %.3gK\t",(float)fileStat.st_size/1024);
+        }
+        else{
+            printf("\t %.3g\t",(float)fileStat.st_size);
+        }
         ct=ctime(&fileStat.st_mtime);
         for(int i=4;i<=15;i++){
             printf("%c",ct[i]);
@@ -282,6 +293,11 @@ void deletef(){
     string firstf=pathvector[1];
     char buf[255];
     int value;
+    struct passwd *pw=getpwuid(getuid());
+    const char *tilda_dir=pw->pw_dir;
+    if(firstf[0]=='~'){
+        firstf=string(tilda_dir)+firstf.substr(1,firstf.length()-1);
+    }
     char *res=realpath(firstf.c_str(),buf);
     string pathvar=string(res);
     remove(pathvar.c_str());
@@ -303,6 +319,16 @@ void copy(){
     for(int i=1;i<n-1;i++){
         string firstf=pathvector[i];
         string secondf=pathvector[n-1];
+
+        struct passwd *pw=getpwuid(getuid());
+        const char *tilda_dir=pw->pw_dir;
+        if(firstf[0]=='~'){
+            firstf=string(tilda_dir)+firstf.substr(1,firstf.length()-1);
+        }
+        if(secondf[0]=='~'){
+            secondf=string(tilda_dir)+secondf.substr(1,secondf.length()-1);
+        }
+
         char bufo[255];
         char bufn[255];
         int value;
@@ -336,6 +362,14 @@ void move(){
     for(int i=1;i<n-1;i++){
         string firstf=pathvector[i];
         string secondf=pathvector[n-1];
+        struct passwd *pw=getpwuid(getuid());
+        const char *tilda_dir=pw->pw_dir;
+        if(firstf[0]=='~'){
+            firstf=string(tilda_dir)+firstf.substr(1,firstf.length()-1);
+        }
+        if(secondf[0]=='~'){
+            secondf=string(tilda_dir)+secondf.substr(1,secondf.length()-1);
+        }
         char bufo[255];
         char bufn[255];
         int value;
@@ -415,7 +449,6 @@ void create_file(){
 
 
 void rename_file(){
-
     string firstf=pathvector[1];
     string secondf=pathvector[2];
 
@@ -428,6 +461,7 @@ void rename_file(){
     char buf[255];
     int value;
     char *res=realpath(firstf.c_str(),buf);
+    if(res){
     string pathvar=path_removed(string(res));
     string new_path=pathvar+"/"+secondf;
     rename(firstf.c_str(),new_path.c_str());
@@ -436,6 +470,12 @@ void rename_file(){
     printdata(curr_dir);
     x=1;y=29;
     cursor_print(x,y);
+    }
+    else{
+        x=1;y=29;
+        cursor_print(x,y);
+        cout<<"Not a Valid Path";
+    }
 
 }
 
@@ -470,6 +510,7 @@ void fgoto(){
 
     char *res=realpath(pathvector[1].c_str(),buf);
     if(res){
+        // forwards.push(string(res));
         backwards.push(string(res));
         strcpy(curr_dir,res);
         clean();
@@ -477,6 +518,11 @@ void fgoto(){
         printdata(curr_dir);
         x=1;y=29;
         cursor_print(x,y);
+    }
+    else{
+        x=1;y=29;
+        cursor_print(x,y);
+        cout<<"Not a Valid Path";
     }
     // if(!res){
     //     cout<<"nahi chalunga";
@@ -508,7 +554,7 @@ void com_enter()
     if(pathvector[0]=="copy"){
         copy();
     }
-    if(pathvector[0]=="delete"){
+    if(pathvector[0]=="delete_file"){
         deletef();
     }
     
@@ -549,7 +595,7 @@ void command(){
             com_enter();
             vcommand.clear();
             pathvector.clear();
-            lineclear();
+            // lineclear();
         }
         else if(c!=127&&c!=27){
             vcommand=vcommand+c;
